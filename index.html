@@ -1,785 +1,326 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <title>釣魚大師：全功能水族箱與自動收益系統</title>
-    <style>
-        :root {
-            --primary: #00e5ff;
-            --ocean-blue: #005f9e;
-            --sand-gold: #ffe0b2;
-            --dark-bg: rgba(0, 0, 0, 0.85);
-            --gold-color: #ffd700;
-        }
-
-        body, html {
-            margin: 0; padding: 0;
-            overflow: hidden;
-            font-family: "Microsoft JhengHei", sans-serif;
-            height: 100vh; width: 100vw;
-            background: #000;
-            user-select: none;
-        }
-
-        /* 頂部控制列 */
-        #nav-bar {
-            position: absolute;
-            top: 20px; left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            display: flex; gap: 15px;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
-            padding: 10px 20px;
-            border-radius: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            align-items: center;
-        }
-
-        .nav-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: none; color: white;
-            padding: 10px 20px; font-size: 16px; font-weight: bold;
-            border-radius: 20px; cursor: pointer;
-            transition: 0.3s;
-        }
-
-        .nav-btn.active {
-            background: var(--primary);
-            color: #000;
-        }
-
-        .gold-display {
-            color: var(--gold-color);
-            font-weight: bold;
-            font-size: 18px;
-            margin-left: 15px;
-            display: flex; align-items: center; gap: 5px;
-        }
-
-        /* 場景基礎 */
-        .scene {
-            position: absolute;
-            width: 100%; height: 100vh;
-            top: 0; left: 0;
-            opacity: 0; pointer-events: none;
-            transition: opacity 0.8s ease;
-        }
-
-        .scene.active {
-            opacity: 1; pointer-events: auto;
-        }
-
-        /* 場景一：水族箱 */
-        #tank-scene {
-            background: linear-gradient(to bottom, #1a73e8, #001b33 70%, #000a11);
-        }
-
-        /* 場景二：海洋與沙灘 */
-        #beach-scene {
-            background: linear-gradient(135deg, #002f55 0%, #005f9e 40%, #00b0ff 85%, #b3e5fc 93%);
-            cursor: crosshair;
-        }
-
-        .mini-beach {
-            position: absolute;
-            bottom: -80px; right: -80px;
-            width: 35vw; height: 35vw;
-            background: radial-gradient(circle, #ffe0b2 0%, #f5f5dc 70%, #e0cda9 100%);
-            border-radius: 50%;
-            box-shadow: -15px -15px 40px rgba(255, 255, 255, 0.3);
-        }
-
-        /* 場景三：商店街 */
-        #shop-scene {
-            background: linear-gradient(135deg, #111 0%, #223 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 25px;
-            padding: 120px 50px 50px 50px;
-            box-sizing: border-box;
-            overflow-y: auto;
-        }
-
-        .shop-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            width: 200px;
-            padding: 20px;
-            text-align: center;
-            color: white;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            transition: 0.3s;
-        }
-        .shop-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--primary);
-            background: rgba(255, 255, 255, 0.08);
-        }
-        .shop-item-icon { font-size: 50px; margin-bottom: 10px; }
-        .shop-item-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-        .shop-item-desc { font-size: 13px; color: #aaa; margin-bottom: 15px; height: 36px; }
-        .shop-buy-btn {
-            background: var(--gold-color);
-            color: #000; font-weight: bold; border: none;
-            padding: 8px 20px; border-radius: 20px; cursor: pointer;
-            transition: 0.2s; width: 100%;
-        }
-        .shop-buy-btn:hover { background: #fff; }
-
-        /* 魚隻與潛水艇樣式 */
-        .fish, .submarine {
-            position: absolute;
-            font-size: 44px;
-            will-change: transform;
-            transition: transform 0.1s linear;
-            cursor: pointer;
-            z-index: 10;
-        }
-        .fish:hover, .submarine:hover {
-            filter: drop-shadow(0 0 8px var(--primary));
-        }
-
-        /* 🍖 飼料樣式 */
-        .food-item {
-            position: absolute;
-            font-size: 22px;
-            pointer-events: none;
-            z-index: 5;
-            will-change: transform;
-        }
-
-        /* 🪙 自動產出收益金幣的動畫標籤 */
-        .revenue-coin {
-            position: absolute;
-            font-size: 20px;
-            font-weight: bold;
-            color: var(--gold-color);
-            pointer-events: none;
-            z-index: 50;
-            animation: floatUpAndFade 1.2s ease-out forwards;
-        }
-
-        @keyframes floatUpAndFade {
-            0% { transform: translateY(0); opacity: 1; }
-            100% { transform: translateY(-40px); opacity: 0; }
-        }
-
-        /* 餵魚控制面板 */
-        #feed-panel {
-            position: absolute;
-            top: 150px; left: 20px;
-            display: flex; flex-direction: column; gap: 10px;
-            z-index: 500;
-        }
-        .feed-btn {
-            background: #e91e63; color: white; border: none;
-            padding: 10px 15px; font-weight: bold; border-radius: 8px;
-            cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            transition: 0.2s; font-size: 14px;
-        }
-        .feed-btn:hover { transform: scale(1.05); background: #c2185b; }
-
-        /* 釣魚日誌 */
-        #fishing-log {
-            position: absolute;
-            bottom: 20px; left: 20px;
-            width: 280px; height: 150px;
-            background: rgba(0, 0, 0, 0.7);
-            color: #fff; border: 1px solid var(--primary);
-            border-radius: 10px; padding: 15px;
-            font-size: 14px; overflow-y: auto;
-            z-index: 500;
-        }
-
-        .log-title { color: var(--primary); font-weight: bold; border-bottom: 1px solid #444; margin-bottom: 8px; }
-
-        /* 水族箱計數器 */
-        #fish-counter {
-            position: absolute;
-            top: 100px; left: 20px;
-            background: rgba(0, 229, 255, 0.2);
-            color: var(--primary);
-            padding: 5px 15px; border-radius: 15px;
-            font-weight: bold;
-            z-index: 500;
-        }
-
-        /* 精準落竿的浮標提示 */
-        .float-icon {
-            position: absolute;
-            font-size: 30px;
-            animation: bounce 0.5s infinite alternate;
-            z-index: 100;
-            transform-origin: center;
-        }
-
-        @keyframes bounce {
-            from { transform: translate(-50%, -50%) translateY(0); }
-            to { transform: translate(-50%, -50%) translateY(-15px); }
-        }
-
-        /* 背包按鈕 */
-        #bag-toggle-btn {
-            position: absolute;
-            bottom: 20px; right: 20px;
-            background: #ff9800; color: white;
-            border: none; padding: 15px 25px;
-            font-size: 18px; font-weight: bold;
-            border-radius: 30px; cursor: pointer;
-            z-index: 2000; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            transition: 0.2s;
-        }
-        #bag-toggle-btn:hover { transform: scale(1.05); }
-
-        /* 彈出視窗基礎樣式 */
-        .modal {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: var(--dark-bg);
-            border: 2px solid var(--primary);
-            border-radius: 15px;
-            color: white; padding: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            backdrop-filter: blur(10px);
-            display: none;
-        }
-
-        #inventory-modal { width: 480px; max-height: 450px; z-index: 3000; }
-        #status-modal { width: 320px; z-index: 4000; text-align: center; }
-
-        .modal-header {
-            display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 15px;
-        }
-        .modal-title { font-size: 20px; font-weight: bold; color: var(--primary); }
-        .close-btn { background: none; border: none; color: #ff5252; font-size: 24px; cursor: pointer; }
-
-        /* 背包清單 */
-        .inventory-list { max-height: 330px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .inventory-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.1); padding: 10px 15px; border-radius: 8px; }
-        .btn-group { display: flex; gap: 8px; }
-        .use-btn { background: #4caf50; border: none; color: white; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px; }
-        .sell-btn { background: #e6a23c; border: none; color: white; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px; }
-        .disabled-btn { background: #555; cursor: not-allowed; }
-
-        /* 狀態面板 */
-        .status-info { font-size: 18px; margin: 12px 0; text-align: left; padding-left: 20px; line-height: 1.8; }
-        .status-gender-m { color: #2196f3; font-weight: bold; }
-        .status-gender-f { color: #e91e63; font-weight: bold; }
-        #status-avatar { font-size: 64px; margin-bottom: 15px; }
-
-        /* 撈取按鈕樣式 */
-        .scoop-btn {
-            background: #00e5ff; color: #000; border: none;
-            padding: 10px 15px; font-weight: bold; font-size: 15px;
-            border-radius: 8px; cursor: pointer; margin-top: 15px;
-            width: 100%; transition: 0.2s;
-        }
-        .scoop-btn:hover { background: #fff; box-shadow: 0 0 10px var(--primary); }
-    </style>
+<meta charset="UTF-8">
+<title>🌊 AI 進化智慧水族箱 - 圖片版</title>
+<style>
+:root{--primary:#00e5ff;--bg-dark:#051622;--panel-bg:#081a29;}
+body{margin:0;font-family:"Microsoft JhengHei",sans-serif;background:var(--bg-dark);color:#fff;overflow:hidden;height:100vh;display:flex;flex-direction:column;}
+h2{text-align:center;margin:5px 0;color:var(--primary);font-size:20px;text-shadow:0 0 8px rgba(0,229,255,.5);}
+#tank{width:100%;flex-grow:1;position:relative;overflow:hidden;background:linear-gradient(to bottom,#00bfff,#001b33 70%,#000a11);border-bottom:2px solid var(--primary);cursor:crosshair;}
+.fish{position:absolute;user-select:none;z-index:10;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.fish-body{width:60px;height:60px;object-fit:contain;transition:filter .3s;animation:swim 1.4s ease-in-out infinite alternate;}
+@keyframes swim{from{transform:translateY(0) scale(var(--size-factor,1));}to{transform:translateY(-4px) scale(var(--size-factor,1));}}
+.fish.dead-fish .fish-body{filter:grayscale(100%) opacity(.5);animation:none;transform:rotate(180deg) scale(var(--size-factor,1));}
+.fish-badge{font-size:11px;background:rgba(0,0,0,.6);padding:1px 4px;border-radius:4px;margin-bottom:2px;white-space:nowrap;pointer-events:none;border:1px solid rgba(255,255,255,.1);}
+.fish-badge.hide-badge{display:none;}
+.food-item{position:absolute;font-size:20px;pointer-events:none;z-index:600;line-height:1;}
+#control-center{height:180px;background:var(--panel-bg);display:flex;padding:15px;gap:15px;box-sizing:border-box;border-top:1px solid rgba(0,229,255,.2);z-index:900;}
+.bottom-feed-matrix-zone{flex:1;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid rgba(0,229,255,.2);padding:12px;display:flex;flex-direction:column;overflow:hidden;}
+.bottom-matrix-title{font-size:13px;margin-bottom:8px;color:var(--primary);font-weight:bold;}
+.bottom-matrix-grid-wrapper{overflow-y:auto;flex-grow:1;}
+.bottom-matrix-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(65px,1fr));gap:6px;}
+.bottom-quick-cell{background:#162d3d;border:1px solid #1e3a52;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;min-height:48px;font-size:11px;transition:.2s;}
+.bottom-quick-cell.active-fish{border-color:var(--primary);background:#1a4a6e;}
+.bottom-quick-cell.has-fed{opacity:.7;border-color:#00ffcc;background:#123e5e;}
+.bottom-quick-cell.has-fed .bottom-cell-num{color:#00ffcc;}
+.bottom-quick-cell.is-dead-quick-cell{background:#3a1616;border-color:#ff3d00;box-shadow:inset 0 0 5px rgba(255,61,0,.2);}
+.bottom-quick-cell.is-dead-quick-cell:hover{background:#4a1c1c;}
+.bottom-cell-icon{width:22px;height:22px;object-fit:contain;margin-bottom:1px;}
+.bottom-cell-num{font-size:10px;font-weight:bold;opacity:.8;}
+.bottom-action-zone{width:180px;display:flex;flex-direction:column;justify-content:center;gap:8px;}
+.btn-all{background:#ff9800;border:none;border-radius:8px;padding:12px;font-weight:bold;cursor:pointer;font-size:14px;text-align:center;color:#000;}
+.btn-undo-all{background:#607d8b;border:none;border-radius:8px;padding:12px;font-weight:bold;cursor:pointer;font-size:14px;text-align:center;color:#fff;}
+#save-toast{position:absolute;top:10px;right:80px;background:rgba(0,229,255,.2);border:1px solid var(--primary);color:var(--primary);padding:3px 10px;border-radius:4px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .3s;z-index:2000;}
+</style>
 </head>
 <body>
 
-<div id="nav-bar">
-    <button class="nav-btn active" onclick="switchScene('tank-scene', this)">🌊 靜謐水族箱</button>
-    <button class="nav-btn" onclick="switchScene('beach-scene', this)">🎣 釣魚海洋</button>
-    <button class="nav-btn" onclick="switchScene('shop-scene', this)">🛒 魚具商店</button>
-    <div class="gold-display">🪙 金幣: <span id="gold-amount">0</span></div>
+<h2>🌊 AI 進化智慧水族箱 - 圖片版</h2>
+
+<div id="tank" onclick="deselect()">
+  <div id="save-toast">💾 已自動儲存</div>
 </div>
 
-<button id="bag-toggle-btn" onclick="toggleInventory()">🎒 背包 (<span id="bag-count-badge">0</span>)</button>
-
-<div id="inventory-modal" class="modal" onclick="event.stopPropagation()">
-    <div class="modal-header">
-        <div class="modal-title">🎒 我的海產背包</div>
-        <button class="close-btn" onclick="toggleInventory()">×</button>
+<div id="control-center">
+  <div class="bottom-feed-matrix-zone">
+    <div class="bottom-matrix-title">📅 快速點名餵食面板（活魚餵 🍖，死魚餵 💊 復活）</div>
+    <div class="bottom-matrix-grid-wrapper">
+      <div class="bottom-matrix-grid" id="bottom-matrix-grid"></div>
     </div>
-    <div id="inventory-list" class="inventory-list"></div>
-</div>
-
-<div id="status-modal" class="modal" onclick="event.stopPropagation()">
-    <div class="modal-header">
-        <div class="modal-title">🧐 生物觀察日記</div>
-        <button class="close-btn" onclick="closeStatusModal()">×</button>
-    </div>
-    <div id="status-avatar">🐟</div>
-    <div class="status-info">
-        <div>種類：<span id="info-name">--</span></div>
-        <div>性別：<span id="info-gender">--</span></div>
-        <div>狀態：<span id="info-status">--</span></div>
-    </div>
-    <button id="scoop-action-btn" class="scoop-btn">🪣 撈起此生物</button>
-</div>
-
-<div id="tank-scene" class="scene active">
-    <div id="fish-counter">缸內生物：0</div>
-    
-    <div id="feed-panel">
-        <button class="feed-btn" onclick="spawnFood(3)">🍖 餵食 3 個飼料</button>
-        <button class="feed-btn" onclick="spawnFood(5)">🍖 餵食 5 個飼料</button>
-    </div>
-
-    <div id="aquarium-space"></div>
-</div>
-
-<div id="beach-scene" class="scene" onclick="handleFishing(event)">
-    <div id="beach-zone" class="mini-beach"></div>
-    
-    <div id="fishing-log" onclick="event.stopPropagation()">
-        <div class="log-title">🎣 垂釣紀錄</div>
-        <div id="log-content">點擊海洋或沙灘拋竿...</div>
-    </div>
-</div>
-
-<div id="shop-scene" class="scene">
-    <div class="shop-card" onclick="event.stopPropagation()">
-        <div class="shop-item-icon">🐛</div>
-        <div class="shop-item-name">高級魚餌</div>
-        <div class="shop-item-desc">味道鮮美，釣到稀有魚隻機率提高。</div>
-        <button class="shop-buy-btn" onclick="buyShopItem('🐛', 50)">🪙 50 購買</button>
-    </div>
-    <div class="shop-card" onclick="event.stopPropagation()">
-        <div class="shop-item-icon">🍀</div>
-        <div class="shop-item-name">幸運手環</div>
-        <div class="shop-item-desc">海神祝福的護身符，帶來極致好運。</div>
-        <button class="shop-buy-btn" onclick="buyShopItem('🍀', 150)">🪙 150 購買</button>
-    </div>
-    <div class="shop-card" onclick="event.stopPropagation()">
-        <div class="shop-item-icon">🛸</div>
-        <div class="shop-item-name">夢幻潛水艇</div>
-        <div class="shop-item-desc">放在魚缸內會自動定期產生「超高額金幣產出」！</div>
-        <button class="shop-buy-btn" onclick="buyShopItem('🛸', 300)">🪙 300 購買</button>
-    </div>
+  </div>
+  <div class="bottom-action-zone">
+    <button class="btn-all" onclick="doFeedAll()">🌟 群體投食 / 復活</button>
+    <button class="btn-undo-all" onclick="doUndoAllFeeding()">↩️ 全體撤銷餵食</button>
+  </div>
 </div>
 
 <script>
-    // --- 數據與配置 ---
-    const lootConfig = {
-        '🐟': { name: '鯖魚', price: 10, isCreature: true },
-        '🐠': { name: '熱帶魚', price: 15, isCreature: true },
-        '🐡': { name: '刺河豚', price: 20, isCreature: true },
-        '🐙': { name: '章魚', price: 25, isCreature: true },
-        '🦑': { name: '烏賊', price: 25, isCreature: true },
-        '🦈': { name: '小鯊魚', price: 50, isCreature: true },
-        '🪼': { name: '水母', price: 30, isCreature: true },
-        '🐬': { name: '海豚', price: 60, isCreature: true },
-        '🦀': { name: '招潮蟹', price: 15, isCreature: true },
-        '⭐': { name: '海星', price: 10, isCreature: true },
-        '🐚': { name: '漂亮的貝殼', price: 5, isCreature: false },
-        '🪙': { name: '古老金幣', price: 30, isCreature: false },
-        '👞': { name: '爛皮鞋', price: 1, isCreature: false },
-        '🌱': { name: '海草', price: 2, isCreature: false },
-        '🐛': { name: '高級魚餌', price: 25, isCreature: false },
-        '🍀': { name: '幸運手環', price: 75, isCreature: false },
-        '🛸': { name: '夢幻潛水艇', price: 150, isCreature: true }
+/* ====== 你的 18 張圖，對應 images/ 裡的檔名（不用加 .png） ====== */
+const bioList = [
+  { name:'生物1',  folder:'3e8bc30-0075-4031-9587-45e7c4e76201' },
+  { name:'生物2',  folder:'05e96568-5877-4d15-a01b-7e903411fe87' },
+  { name:'生物3',  folder:'6ab4dd03-9322-40ca-bb11-ffa3952908d4' },
+  { name:'生物4',  folder:'8a7498b6-cf5a-4bdc-9ab0-8ee466471881' },
+  { name:'生物5',  folder:'52edca65-fca1-41db-8e43-164e8bb6a456' },
+  { name:'生物6',  folder:'53d0430e-5907-4223-b52e-c574e00809ae' },
+  { name:'生物7',  folder:'69b44d8b-5b04-422b-9dd6-78f45cfb6a95' },
+  { name:'生物8',  folder:'01451e63-6f39-49a6-a4df-21aa565df275' },
+  { name:'生物9',  folder:'561b2eee-c51f-452b-bd98-78e3e1865872' },
+  { name:'生物10', folder:'6399b98f-d4c5-46d4-b660-3ff53f214ae8' },
+  { name:'生物11', folder:'27364f40-92ce-404f-be58-04d7b5377ae5' },
+  { name:'生物12', folder:'2790235b-2a7f-4b90-a336-08d5fbdcaeca' },
+  { name:'生物13', folder:'03740734-4f0e-40a0-a8f8-3ac1620f7867' },
+  { name:'生物14', folder:'a0b63aa2-e3cc-4cbf-885d-b2380689a050' },
+  { name:'生物15', folder:'af1e226f-2a6b-4a96-8d6b-b29b0ce969f9' },
+  { name:'生物16', folder:'b17b40db-8bad-435f-bb3b-0fb04ae3ef46' },
+  { name:'生物17', folder:'e62e341e-2876-4fb5-836c-5c2db087f09a' },
+  { name:'生物18', folder:'e9966c42-1d78-4b37-aa19-33bc3f0e66d4' }
+];
+
+const config = { speed:1, geneMode:'single', fishCount:26, showId:true, showDays:true, maxDays:10 };
+let fishArray = [], foodsArray = [], currentId = null;
+const tank = document.getElementById('tank');
+
+function img(t){ return `images/${bioList[t].folder}.png`; }
+function getTodayString(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function checkIsDead(s){ if(!s)return false; const a=new Date(s), b=new Date(getTodayString()); return Math.floor((b-a)/86400000)>1; }
+
+function init(){ buildAquarium(); (function loop(){ render(); requestAnimationFrame(loop); })(); }
+
+function buildAquarium(){
+  deselect();
+  fishArray.forEach(f=>f.domFish&&f.domFish.remove());
+  foodsArray.forEach(f=>f.dom&&f.dom.remove());
+  foodsArray = []; fishArray = [];
+  document.getElementById('bottom-matrix-grid').innerHTML = '';
+
+  let saved = {};
+  try{ saved = JSON.parse(localStorage.getItem('aq_v4')) || {}; }catch(e){}
+
+  for(let i=0;i<config.fishCount;i++){
+    const id = i+1;
+    const initT = Math.floor(Math.random()*bioList.length);
+    let g=0, c=1, lf='', dead=false;
+    if(saved[id]){
+      g = saved[id].growthDays || 0;
+      c = saved[id].currentSize || 1;
+      lf = saved[id].lastFedDate || '';
+      dead = saved[id].isDead || false;
+      if(!dead && checkIsDead(lf)){ dead=true; g=0; c=1; }
+    }
+
+    const f = {
+      id,
+      type: saved[id] ? saved[id].type : initT,
+      x: 5 + Math.random()*85,
+      y: dead ? 85 : 15 + Math.random()*65,
+      dx: dead ? 0 : (Math.random()-.5)*.4,
+      dy: dead ? 0 : (Math.random()-.5)*.3,
+      targetFood: null,
+      growthDays: g,
+      currentSize: c,
+      lastFedDate: lf,
+      isDead: dead
     };
 
-    const seaPool = ['🐟', '🐠', '🐡', '🐙', '🦑', '🦈', '🪼', '🐬'];
-    const beachPool = ['🦀', '🐚', '⭐', '🪙', '👞', '🌱'];
-    const statuses = ['活力充沛地游動中 ⚡', '優雅地在水底散步 🌊', '肚子有點餓想吃東西 🍖', '正在偷懶打瞌睡 💤', '對周遭感到非常好奇 👀'];
-    
-    let playerGold = 100; 
-    let inventory = {};
-    let fishList = []; 
-    let foodsArray = []; 
-    let isFishing = false;
+    const el = document.createElement('div');
+    el.className = 'fish' + (dead ? ' dead-fish' : '');
+    el.onclick = e => { e.stopPropagation(); selectFish(id); };
 
-    document.getElementById('gold-amount').textContent = playerGold;
+    const bd = document.createElement('div');
+    bd.className = 'fish-badge';
+    el.appendChild(bd);
 
-    // --- 場景切換 ---
-    function switchScene(sceneId, btn) {
-        document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(sceneId).classList.add('active');
-        btn.classList.add('active');
-        closeStatusModal();
+    const body = document.createElement('img');
+    body.className = 'fish-body';
+    body.src = img(f.type);
+    body.onerror = function(){ this.style.opacity = '.3'; };
+    el.appendChild(body);
+
+    tank.appendChild(el);
+    f.domFish = el;
+    f.domFishBody = body;
+    f.domFishBadge = bd;
+    body.style.setProperty('--size-factor', c);
+
+    const bc = document.createElement('div');
+    bc.className = 'bottom-quick-cell' + (dead ? ' is-dead-quick-cell' : '');
+    bc.onclick = e => { e.stopPropagation(); quickFeed(id); };
+
+    const bi = document.createElement('img');
+    bi.className = 'bottom-cell-icon';
+    bi.src = img(f.type);
+
+    const bn = document.createElement('span');
+    bn.className = 'bottom-cell-num';
+
+    bc.appendChild(bi);
+    bc.appendChild(bn);
+    document.getElementById('bottom-matrix-grid').appendChild(bc);
+
+    f.domBottomCell = bc;
+    f.domBottomCellIcon = bi;
+    f.domBottomCellNum = bn;
+
+    fishArray.push(f);
+  }
+  saveProgress();
+}
+
+function quickFeed(id){
+  selectFish(id);
+  const f = fishArray.find(x => x.id === id);
+  if(!f) return;
+  if(f.lastFedDate === getTodayString() && !f.targetFood){ cancelFeeding(id); return; }
+  if(!f.targetFood) spawnFood(f);
+}
+
+function spawnFood(f){
+  const e = document.createElement('div');
+  e.className = 'food-item';
+  e.innerText = f.isDead ? '💊' : '🍖';
+  const x = f.x + (Math.random()-.5)*8;
+  e.style.left = x + '%';
+  e.style.top = '0%';
+  tank.appendChild(e);
+  const o = { id: Date.now()+'-'+f.id, x, y:0, dom:e, isEaten:false, isPill:f.isDead };
+  foodsArray.push(o);
+  f.targetFood = o;
+}
+
+function cancelFeeding(id){
+  const f = fishArray.find(x => x.id === id);
+  if(!f) return;
+  if(f.targetFood){
+    f.targetFood.dom.remove();
+    foodsArray = foodsArray.filter(o => o.id !== f.targetFood.id);
+    f.targetFood = null;
+  }
+  if(f.lastFedDate === getTodayString()){
+    if(!f.isDead){
+      f.growthDays = Math.max(0, f.growthDays - 1);
+      const m = Math.floor(f.growthDays / config.maxDays);
+      f.currentSize = parseFloat((1 + m*.2).toFixed(1));
     }
+    const y = new Date(); y.setDate(y.getDate()-1);
+    f.lastFedDate = `${y.getFullYear()}-${String(y.getMonth()+1).padStart(2,'0')}-${String(y.getDate()).padStart(2,'0')}`;
+    saveProgress();
+  }
+}
 
-    // --- 水族箱定期產金幣收益系統 ---
-    function startRevenueTimer() {
-        setInterval(() => {
-            if (fishList.length === 0) return;
+function doFeedAll(){
+  const t = getTodayString();
+  fishArray.forEach(f => {
+    if(f.isDead && !f.targetFood) spawnFood(f);
+    else if(!f.isDead && f.lastFedDate !== t && !f.targetFood) spawnFood(f);
+  });
+}
 
-            fishList.forEach(fish => {
-                let revenue = (fish.icon === '🛸') ? 15 : 5;
-                playerGold += revenue;
-                createCoinPopEffect(fish.x, fish.y, revenue);
-            });
+function doUndoAllFeeding(){ fishArray.forEach(f => cancelFeeding(f.id)); }
+function selectFish(id){ currentId = id; }
+function deselect(){ currentId = null; }
 
-            document.getElementById('gold-amount').textContent = playerGold;
-        }, 10000); 
-    }
+function saveProgress(){
+  const d = {};
+  fishArray.forEach(f => {
+    d[f.id] = { type:f.type, growthDays:f.growthDays, currentSize:f.currentSize, lastFedDate:f.lastFedDate, isDead:f.isDead };
+  });
+  localStorage.setItem('aq_v4', JSON.stringify(d));
+  const t = document.getElementById('save-toast');
+  t.style.opacity = '1';
+  setTimeout(() => t.style.opacity = '0', 800);
+}
 
-    function createCoinPopEffect(x, y, amount) {
-        const space = document.getElementById('aquarium-space');
-        const coinEffect = document.createElement('div');
-        coinEffect.className = 'revenue-coin';
-        coinEffect.style.left = `${x}vw`;
-        coinEffect.style.top = `${y}vh`;
-        coinEffect.textContent = `🪙 +${amount}`;
-        space.appendChild(coinEffect);
+function render(){
+  const today = getTodayString();
 
-        setTimeout(() => {
-            coinEffect.remove();
-        }, 1200);
-    }
+  foodsArray.forEach(f => {
+    if(!f.isEaten){ f.y += .4; if(f.y > 90) f.y = 90; f.dom.style.top = f.y + '%'; }
+  });
 
-    // --- 商店購買邏輯 ---
-    function buyShopItem(itemCode, cost) {
-        if (playerGold < cost) {
-            alert("❌ 金幣不足，快去海洋釣魚賺錢吧！");
-            return;
-        }
-
-        playerGold -= cost;
-        document.getElementById('gold-amount').textContent = playerGold;
-
-        if (itemCode === '🛸') {
-            alert("🎉 購買成功！【夢幻潛水艇】已直接投放至您的水族箱中，牠將帶來高額定期收益！");
-            deploySubmarineToTank();
+  fishArray.forEach(f => {
+    if(f.isDead){
+      if(f.targetFood && f.targetFood.isPill){
+        const o = f.targetFood;
+        const dx = o.x - f.x, dy = o.y - f.y, d = Math.hypot(dx, dy);
+        if(d < 4){
+          o.isEaten = true; o.dom.remove();
+          foodsArray = foodsArray.filter(x => x.id !== o.id);
+          f.targetFood = null;
+          f.isDead = false; f.growthDays = 0; f.currentSize = 1; f.lastFedDate = today;
+          f.dx = (Math.random()-.5)*.4; f.dy = (Math.random()-.5)*.3;
+          saveProgress();
         } else {
-            if (!inventory[itemCode]) inventory[itemCode] = 0;
-            inventory[itemCode]++;
-            updateBagBadge();
-            alert(`🎉 成功購買了 【${lootConfig[itemCode].name}】！已收入背包。`);
+          f.dx = dx/d*.3; f.dy = dy/d*.3;
+          f.x += f.dx; f.y += f.dy;
         }
-    }
-
-    // --- 投放潛水艇至水族箱 ---
-    function deploySubmarineToTank() {
-        const container = document.getElementById('aquarium-space');
-        const el = document.createElement('div');
-        el.className = 'submarine';
-        el.textContent = '🛸';
-        container.appendChild(el);
-
-        const subObj = {
-            dom: el,
-            name: '夢幻潛水艇',
-            icon: '🛸',
-            gender: { icon: '🤖 機械無性別', class: '' },
-            status: '正在全自動深海巡邏中 🤖',
-            x: Math.random() * 90,
-            y: Math.random() * 80,
-            dx: (Math.random() - 0.5) * 0.1,
-            dy: (Math.random() - 0.5) * 0.05,
-            flip: 1
-        };
-
-        el.onclick = (event) => {
-            event.stopPropagation(); 
-            openStatusModal(subObj);
-        };
-
-        function wanderSetup() {
-            subObj.dx = (Math.random() - 0.5) * 0.12; 
-            subObj.dy = (Math.random() - 0.5) * 0.08;
-            setTimeout(wanderSetup, Math.random() * 4000 + 3000);
-        }
-        wanderSetup();
-
-        fishList.push(subObj);
-        document.getElementById('fish-counter').textContent = `缸內生物：${fishList.length}`;
-    }
-
-    // --- 精準座標拋竿與區域判定邏輯 ---
-    function handleFishing(e) {
-        if (isFishing) return;
-        isFishing = true;
-
-        const x = e.clientX;
-        const y = e.clientY;
-
-        const beachZone = document.getElementById('beach-zone');
-        const beachRect = beachZone.getBoundingClientRect();
-        
-        const beachCenterX = beachRect.left + beachRect.width / 2;
-        const beachCenterY = beachRect.top + beachRect.height / 2;
-        const distanceToBeachCenter = Math.sqrt(Math.pow(x - beachCenterX, 2) + Math.pow(y - beachCenterY, 2));
-        
-        const isBeach = distanceToBeachCenter < (beachRect.width / 2);
-        const location = isBeach ? "沙灘" : "海洋";
-
-        const float = document.createElement('div');
-        float.className = 'float-icon';
-        float.style.left = x + 'px';
-        float.style.top = y + 'px';
-        float.textContent = '🔴';
-        document.getElementById('beach-scene').appendChild(float);
-
-        addLog(`在座標 (${x}, ${y}) 【${location}】拋下了魚竿...`);
-
-        setTimeout(() => {
-            float.textContent = '❗'; 
-            setTimeout(() => {
-                float.remove();
-                
-                const pool = isBeach ? beachPool : seaPool;
-                const loot = pool[Math.floor(Math.random() * pool.length)];
-                const itemInfo = lootConfig[loot];
-
-                if (!inventory[loot]) inventory[loot] = 0;
-                inventory[loot]++;
-
-                addLog(`🎉 在剛才的落點釣到了 [${itemInfo.name} ${loot}]！已收進背包。`);
-                updateBagBadge();
-                isFishing = false;
-            }, 1000);
-        }, 1500);
-    }
-
-    // --- 背包功能 ---
-    function toggleInventory() {
-        const modal = document.getElementById('inventory-modal');
-        if (modal.style.display === 'block') {
-            modal.style.display = 'none';
+      } else {
+        f.dx = 0; f.dy = 0;
+        f.y = Math.min(88, f.y + .5);
+      }
+      f.domFish.classList.add('dead-fish');
+      f.domFishBody.style.setProperty('--size-factor', f.currentSize);
+    } else {
+      f.domFish.classList.remove('dead-fish');
+      if(f.targetFood){
+        const o = f.targetFood;
+        const dx = o.x - f.x, dy = o.y - f.y, d = Math.hypot(dx, dy);
+        if(d < 4){
+          o.isEaten = true; o.dom.remove();
+          foodsArray = foodsArray.filter(x => x.id !== o.id);
+          f.targetFood = null;
+          if(f.lastFedDate !== today){
+            f.lastFedDate = today;
+            f.growthDays++;
+            const m = Math.floor(f.growthDays / config.maxDays);
+            f.currentSize = parseFloat((1 + m*.2).toFixed(1));
+            saveProgress();
+          }
         } else {
-            renderInventoryList();
-            modal.style.display = 'block';
+          f.dx = dx/d*.5; f.dy = dy/d*.5;
         }
-    }
-
-    function updateBagBadge() {
-        let total = 0;
-        for (let key in inventory) total += inventory[key];
-        document.getElementById('bag-count-badge').textContent = total;
-    }
-
-    function renderInventoryList() {
-        const listContainer = document.getElementById('inventory-list');
-        listContainer.innerHTML = '';
-        let hasItem = false;
-
-        for (let item in inventory) {
-            if (inventory[item] <= 0) continue;
-            hasItem = true;
-
-            const itemConfig = lootConfig[item];
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'inventory-item';
-
-            itemDiv.innerHTML = `
-                <div class="item-info">
-                    <span>${item} ${itemConfig.name}</span>
-                    <span style="color:#aaa; font-size:14px;">x${inventory[item]}</span>
-                </div>
-                <div class="btn-group">
-                    ${itemConfig.isCreature 
-                        ? `<button class="use-btn" onclick="deployToTank('${item}')">放進水族箱</button>` 
-                        : `<button class="use-btn disabled-btn" disabled style="opacity:0.4">儲存中</button>`
-                    }
-                    <button class="sell-btn" onclick="sellItem('${item}')">賣掉 (+🪙${itemConfig.price})</button>
-                </div>
-            `;
-            listContainer.appendChild(itemDiv);
+      } else {
+        if(Math.random() < .015){
+          f.dx = (Math.random()-.5)*.5;
+          f.dy = (Math.random()-.5)*.4;
         }
-        if (!hasItem) listContainer.innerHTML = '<div style="text-align:center; color:#888; padding: 20px;">背包空空如也...</div>';
+      }
+      f.x += f.dx; f.y += f.dy;
+      if(f.x < 2){ f.x = 2; f.dx *= -1; }
+      if(f.x > 94){ f.x = 94; f.dx *= -1; }
+      if(f.y < 15){ f.y = 15; f.dy *= -1; }
+      if(f.y > 88){ f.y = 88; f.dy *= -1; }
+      const flip = f.dx > 0 ? 'scaleX(-1)' : 'scaleX(1)';
+      f.domFishBody.style.transform = `${flip} scale(${f.currentSize})`;
     }
 
-    function sellItem(item) {
-        if (!inventory[item] || inventory[item] <= 0) return;
-        inventory[item]--;
-        playerGold += lootConfig[item].price;
-        document.getElementById('gold-amount').textContent = playerGold;
-        updateBagBadge();
-        renderInventoryList();
+    f.domFish.style.left = f.x + '%';
+    f.domFish.style.top = f.y + '%';
+
+    let t = '';
+    if(config.showId) t += '#' + f.id + ' ';
+    if(config.showDays) t += (f.isDead ? '💀' : '📅' + f.growthDays + 'd');
+    f.domFishBadge.textContent = t;
+    f.domFishBadge.className = 'fish-badge' + ((!config.showId && !config.showDays) ? ' hide-badge' : '');
+
+    if(f.domBottomCell){
+      f.domBottomCellIcon.src = img(f.type);
+      if(f.isDead){
+        f.domBottomCell.className = 'bottom-quick-cell is-dead-quick-cell';
+        f.domBottomCellNum.textContent = `#${f.id} 💊`;
+      } else if(f.lastFedDate === today){
+        f.domBottomCell.className = 'bottom-quick-cell has-fed';
+        f.domBottomCellNum.textContent = `#${f.id} ✔️ ${f.growthDays}d`;
+      } else {
+        f.domBottomCell.className = 'bottom-quick-cell' + (f.id === currentId ? ' active-fish' : '');
+        f.domBottomCellNum.textContent = `#${f.id} (${f.growthDays}d)`;
+      }
     }
+  });
+}
 
-    // --- 放生至水族箱 ---
-    function deployToTank(item) {
-        if (!inventory[item] || inventory[item] <= 0) return;
-        inventory[item]--;
-        updateBagBadge();
-        renderInventoryList(); 
-
-        const container = document.getElementById('aquarium-space');
-        const el = document.createElement('div');
-        el.className = 'fish';
-        el.textContent = item;
-        container.appendChild(el);
-
-        const genderRandom = Math.random() > 0.5 ? { icon: '♂ 雄性', class: 'status-gender-m' } : { icon: '♀ 雌性', class: 'status-gender-f' };
-        const statusRandom = statuses[Math.floor(Math.random() * statuses.length)];
-
-        const fishObj = {
-            dom: el,
-            name: lootConfig[item].name,
-            icon: item,
-            gender: genderRandom,
-            status: statusRandom,
-            x: Math.random() * 90,
-            y: Math.random() * 80,
-            dx: (Math.random() - 0.5) * 0.18,
-            dy: (Math.random() - 0.5) * 0.12,
-            flip: 1
-        };
-
-        el.onclick = (event) => {
-            event.stopPropagation(); 
-            openStatusModal(fishObj);
-        };
-
-        function wanderSetup() {
-            if (foodsArray.length === 0) {
-                fishObj.dx = (Math.random() - 0.5) * 0.18; 
-                fishObj.dy = (Math.random() - 0.5) * 0.12;
-            }
-            setTimeout(wanderSetup, Math.random() * 3000 + 2000);
-        }
-        wanderSetup();
-
-        fishList.push(fishObj);
-        document.getElementById('fish-counter').textContent = `缸內生物：${fishList.length}`;
-        toggleInventory();
-    }
-
-    // --- 餵魚系統 ---
-    function spawnFood(count) {
-        const container = document.getElementById('aquarium-space');
-        for (let i = 0; i < count; i++) {
-            const foodX = Math.random() * 90 + 5; 
-            const foodY = Math.random() * -10 - 2; 
-
-            const foodEl = document.createElement('div');
-            foodEl.className = 'food-item';
-            foodEl.innerText = '🍖';
-            foodEl.style.transform = `translate(${foodX}vw, ${foodY}vh)`;
-            container.appendChild(foodEl);
-
-            foodsArray.push({
-                x: foodX,
-                y: foodY,
-                dom: foodEl,
-                isEaten: false
-            });
-        }
-    }
-
-    // --- 觀察狀態彈窗與撈魚系統 ---
-    function openStatusModal(fish) {
-        document.getElementById('status-avatar').textContent = fish.icon;
-        document.getElementById('info-name').textContent = fish.name;
-        
-        const genderSpan = document.getElementById('info-gender');
-        genderSpan.textContent = fish.gender.icon;
-        genderSpan.className = fish.gender.class;
-
-        document.getElementById('info-status').textContent = fish.status;
-        
-        // 根據類型變更撈取按鈕的文字（潛水艇寫回收，一般魚寫撈起）
-        const scoopBtn = document.getElementById('scoop-action-btn');
-        scoopBtn.textContent = (fish.icon === '🛸') ? "🤖 回收此載具" : "🪣 撈起此生物";
-        
-        // 綁定撈魚點擊事件
-        scoopBtn.onclick = () => {
-            scoopFishBackToBag(fish);
-        };
-
-        document.getElementById('status-modal').style.display = 'block';
-    }
-
-    // 🎣 核心擴充功能：把生物從水族箱撈回背包
-    function scoopFishBackToBag(fish) {
-        // 1. 從畫面上將節點移除
-        fish.dom.remove();
-
-        // 2. 從運算陣列中過濾掉它
-        fishList = fishList.filter(f => f !== fish);
-
-        // 3. 放回背包數據
-        if (!inventory[fish.icon]) inventory[fish.icon] = 0;
-        inventory[fish.icon]++;
-
-        // 4. 更新前端計數器與紅點
-        document.getElementById('fish-counter').textContent = `缸內生物：${fishList.length}`;
-        updateBagBadge();
-        
-        // 5. 關閉日記視窗
-        closeStatusModal();
-
-        alert(`🪣 已成功將【${fish.name}】安全收回您的海產背包！`);
-    }
-
-    function closeStatusModal() {
-        document.getElementById('status-modal').style.display = 'none';
-    }
-
-    // --- 水族箱與飼料物理動態引擎 ---
-    function animateAquarium() {
-        foodsArray.forEach(food => {
-            if (!food.isEaten) {
-                food.y += 0.2; 
-                food.dom.style.transform = `translate(${food.x}vw, ${food.y}vh)`;
-                if (food.y > 95) {
-                    food.dom.remove();
-                    food.isEaten = true;
-                }
-            }
-        });
-        foodsArray = foodsArray.filter(f => !f.isEaten);
-
-        fishList.forEach(f => {
-            if (foodsArray.length > 0 && f.name !== '夢幻潛水艇') {
-                let minDist = 999;
-                let targetFood = null;
-                foodsArray.forEach(food => {
-                    const dist = Math.sqrt(Math.pow(food.x - f.x, 2) + Math.pow(food.y - f.y, 2));
-                    if (dist < minDist) {
-                        minDist = dist;
-                        targetFood = food;
-                    }
-                });
-
-                if (targetFood) {
-                    const diffX = targetFood.x - f.x;
-                    const diffY = targetFood.y - f.y;
-                    
-                    f.dx = diffX > 0 ? 0.2 : -0.2;
-                    f.dy = diffY > 0 ? 0.15 : -0.15;
-
-                    if (minDist < 5) {
-                        targetFood.isEaten = true;
-                        targetFood.dom.remove();
-                        f.status = "剛吃飽，覺得非常幸福 🥰";
-                        
-                        f.dx = (Math.random() - 0.5) * 0.18;
-                        f.dy = (Math.random() - 0.5) * 0.12;
-                    }
-                }
-            }
-
-            f.x += f.dx; f.y += f.dy;
-            
-            if (f.x < 2) { f.x = 2; f.dx *= -1; }
-            if (f.x > 94) { f.x = 94; f.dx *= -1; }
-            if (f.y < 2) { f.y = 2; f.dy *= -1; }
-            if (f.y > 90) { f.y = 90; f.dy *= -1; }
-            
-            if (f.dx !== 0) {
-                f.flip = f.dx > 0 ? -1 : 1;
-            }
-            f.dom.style.transform = `translate(${f.x}vw, ${f.y}vh) scaleX(${f.flip})`;
-        });
-
-        requestAnimationFrame(animateAquarium);
-    }
-
-    function addLog(text) {
-        const content = document.getElementById('log-content');
-        if (content.innerHTML.includes("點擊海洋")) content.innerHTML = "";
-        const div = document.createElement('div');
-        div.style.marginBottom = '5px';
-        div.textContent = `> ${text}`;
-        content.prepend(div);
-    }
-
-    animateAquarium();
-    startRevenueTimer();
+window.onload = init;
 </script>
 </body>
 </html>
